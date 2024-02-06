@@ -1,4 +1,13 @@
+//TODO: renderdate&time
+//TODO: take update system
+
 (function(me){
+
+    //load prefs
+    var folderName = app.settings.haveSetting("xRender", "folderName") ? app.settings.getSetting("xRender", "folderName") : "00_render";
+    var outputModuleSettings = app.settings.haveSetting("xRender", "outputModuleSettings") ? app.settings.getSetting("xRender", "outputModuleSettings") : "Prores422HQ";
+    var renderSettings = app.settings.haveSetting("xRender", "renderSettings") ? app.settings.getSetting("xRender", "renderSettings") : "Xaryen - Default";
+    var renderPath = app.settings.haveSetting("xRender", "renderPath") ? app.settings.getSetting("xRender", "renderPath") : "D:/08_test";
 
     function addToRenderQueue(folderName, outputModuleSettings, renderSettings, outputPath) {
         var project = app.project;
@@ -107,36 +116,32 @@
     function showSettingsDialog() {
         var dlg = new Window("dialog", "Settings");
         clearRenderQueue();
-        var tempRQitem = app.project.renderQueue.items.add(topComp);
-        $.writeln(tempRQitem.comp.name);
+        var tempRQitem = app.project.renderQueue.items.add(app.project.activeItem);
         dlg.orientation = "column";
         dlg.alignChildren = "fill";
 
         // Folder Name
         var folderGroup = dlg.add("group", undefined);
         folderGroup.add("statictext", undefined, "Folder Name:");
-        var folderNameInput = folderGroup.add("edittext", undefined, "00_render");
+        var folderNameInput = folderGroup.add("edittext", undefined, folderName);
         folderNameInput.size = [200, 20];
 
         // Output Module Settings Dropdown
         var outputModuleGroup = dlg.add("group", undefined);
         outputModuleGroup.add("statictext", undefined, "Output Module Settings:");
-        var oMList = []
-        $.writeln(oMList);
-        oMList = tempRQitem.outputModule(1).templates;
-        $.writeln(oMList);
+        var oMList = tempRQitem.outputModule(1).templates;
         var outputModuleDropdown = outputModuleGroup.add("dropdownlist", undefined, oMList);
-        outputModuleDropdown.selection = outputModuleDropdown.find("Prores422HQ"); // Default selection or first if not found
+        outputModuleDropdown.selection = outputModuleDropdown.find(outputModuleSettings) || 0;
 
-        // Render Settings Dropdown
+        // Render Settings Dropdown - This should actually be an EditText based on your provided code
         var renderSettingsGroup = dlg.add("group", undefined);
         renderSettingsGroup.add("statictext", undefined, "Render Settings:");
-        var renderSettings = renderSettingsGroup.add("edittext", undefined, "Xaryen - Default");
+        var renderSettingsDropdown = renderSettingsGroup.add("edittext", undefined, renderSettings);
 
         // Render Path
         var renderPathGroup = dlg.add("group", undefined);
         renderPathGroup.add("statictext", undefined, "Render Path:");
-        var renderPathInput = renderPathGroup.add("edittext", undefined, "D:/08_test");
+        var renderPathInput = renderPathGroup.add("edittext", undefined, renderPath);
         renderPathInput.size = [200, 20];
 
         // Buttons
@@ -149,8 +154,15 @@
             // Update global variables with settings dialog input
             folderName = folderNameInput.text;
             outputModuleSettings = outputModuleDropdown.selection.text;
-            renderSettings = renderSettingsDropdown.selection.text;
+            renderSettings = renderSettingsDropdown.text;
             renderPath = renderPathInput.text;
+
+            // Save preferences
+            app.settings.saveSetting("xRender", "folderName", folderName);
+            app.settings.saveSetting("xRender", "outputModuleSettings", outputModuleSettings);
+            app.settings.saveSetting("xRender", "renderSettings", renderSettings);
+            app.settings.saveSetting("xRender", "renderPath", renderPath);
+
             clearRenderQueue();
             dlg.close();
         };
@@ -163,12 +175,7 @@
         dlg.show();
     }
 
-    // Example usage
-    var folderName = "00_render";
-    var outputModuleSettings = "Prores422HQ"; // Specify your output module settings template name
-    // var outputModuleSettings = "HDR-EXR"; // Specify your output module settings template name
-    var renderSettings = "Xaryen - Default"; // Specify your render settings template name
-    var renderPath = "D:/08_test";
+    //-----------------------------------------------------------------------main
     var topComp = app.project.item(2);
 
     // Create the UI
