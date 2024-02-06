@@ -1,7 +1,6 @@
 
 (function(me){
 
-// Create a function to add items to the render queue
 function addToRenderQueue(folderName, outputModuleSettings, renderSettings) {
     var project = app.project;
     if (!project) return alert("No project found.");
@@ -13,9 +12,8 @@ function addToRenderQueue(folderName, outputModuleSettings, renderSettings) {
 
     for (var i = 1; i <= folder.numItems; i++) {
         var item = folder.item(i);
-        if (item instanceof CompItem) {
+        if (item instanceof CompItem && !isCompInRenderQueue(item)) {
             var renderQueueItem = app.project.renderQueue.items.add(item);
-
             renderQueueItem.applyTemplate(renderSettings);
             renderQueueItem.outputModule(1).applyTemplate(outputModuleSettings);
         }
@@ -24,7 +22,16 @@ function addToRenderQueue(folderName, outputModuleSettings, renderSettings) {
     app.endUndoGroup();
 }
 
-// Function to find a folder by name
+function isCompInRenderQueue(compToCheck) {
+    for (var i = 1; i <= app.project.renderQueue.items.length; i++) {
+        var rqItem = app.project.renderQueue.item(i);
+        if (rqItem.status !== RQItemStatus.USER_STOPPED && rqItem.comp.id === compToCheck.id) {
+            return true; // The composition is already in the render queue
+        }
+    }
+    return false; // The composition is not in the render queue
+}
+
 function findFolderByName(parentFolder, name) {
     for (var i = 1; i <= parentFolder.numItems; i++) {
         var item = parentFolder.item(i);
