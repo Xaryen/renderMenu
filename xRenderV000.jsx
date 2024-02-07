@@ -1,20 +1,31 @@
-//TODO: renderdate&time
-//TODO: take update system
+//TODO: create folder if it's a sequence
+//TODO: trim the hidden modules 
 
 (function(me){
 
-    //load prefs
-    var folderName = app.settings.haveSetting("xRender", "folderName") ? app.settings.getSetting("xRender", "folderName") : "00_render";
-    var outputModuleSettings = app.settings.haveSetting("xRender", "outputModuleSettings") ? app.settings.getSetting("xRender", "outputModuleSettings") : "Prores422HQ";
-    var renderSettings = app.settings.haveSetting("xRender", "renderSettings") ? app.settings.getSetting("xRender", "renderSettings") : "Xaryen - Default";
-    var renderPath = app.settings.haveSetting("xRender", "renderPath") ? app.settings.getSetting("xRender", "renderPath") : "D:/08_test";
+    function getObjectKeys(obj) {
+        var keys = [];
+        for (var key in obj) {
+            if (obj.hasOwnProperty(key)) {
+                keys.push(key);
+            }
+        }
+        return keys;
+    }
 
-    function addToRenderQueue(folderName, outputModuleSettings, renderSettings, outputPath) {
-        var project = app.project;
-        if (!project) return alert("No project found.");
+    function getObjectValues(obj) {
+        var values = [];
+        for (var key in obj) {
+            if (obj.hasOwnProperty(key)) {
+                values.push(obj[key]);
+            }
+        }
+        return values;
+    }
 
-        var folder = findFolderByName(project.rootFolder, folderName);
-        if (!folder) return alert("Folder '" + folderName + "' not found.");
+    function addToRenderQueue(renderFolder, outputModuleSettings, renderSettings, outputPath) {
+
+        var folder = renderFolder;
 
         app.beginUndoGroup("Add Items to Render Queue");
 
@@ -74,19 +85,17 @@
         }
     }
 
-    function updateTake(comp){
+    function getTake(comp){
 
-        var getTake = comp.name.split("_").reverse()[0]
-        var getTakeNumber = getTake.charAt(1);
-        var getTakeType = getTake.charAt(0);
+        var take = comp.name.split("_").reverse()[0]
+        var takeT = take.charAt(0);
+        var takeN = parseInt(take.charAt(1));
 
-        return [getTakeType, getTakeNumber];
-
-       
+        return [takeT, takeN];
     }
 
-    function updateDropdownSelection(takeTy) {
-        var selectionIndex = 1;
+    function getDropdownSelection(takeTy) {
+        var selectionIndex = 0;
 
             switch(takeTy) {
                 case "T":
@@ -109,8 +118,7 @@
                     break;
             }
 
-        // Update the dropdown selection
-        takeTypeDropdown.selection = selectionIndex;
+        return selectionIndex;
     }
 
     function showSettingsDialog() {
@@ -151,13 +159,11 @@
         var cancelBtn = btnsGroup.add("button", undefined, "Cancel");
 
         okBtn.onClick = function() {
-            // Update global variables with settings dialog input
             folderName = folderNameInput.text;
             outputModuleSettings = outputModuleDropdown.selection.text;
             renderSettings = renderSettingsDropdown.text;
             renderPath = renderPathInput.text;
 
-            // Save preferences
             app.settings.saveSetting("xRender", "folderName", folderName);
             app.settings.saveSetting("xRender", "outputModuleSettings", outputModuleSettings);
             app.settings.saveSetting("xRender", "renderSettings", renderSettings);
@@ -175,20 +181,82 @@
         dlg.show();
     }
 
-    //-----------------------------------------------------------------------main
-    var topComp = app.project.item(2);
+    function updateComp(){
+        for (i = 1; i <= renderFolder.numItems; i++){
+            var comp = renderFolder.item(i);
+            var compNameParts = comp.name.split("_");
+            compNameParts[compNameParts.length - 1] = takeType + takeNumber;
+            comp.name = compNameParts.join("_");
+        }
+    }
 
-    // Create the UI
+    function pad(n) {
+        return n < 10 ? '0' + n : n;
+    }
+
+    function getDateTime(){
+        var now = new Date();
+        var year = now.getFullYear();
+        var month = now.getMonth() + 1;
+        var day = now.getDate();
+        var hours = now.getHours();
+        var minutes = now.getMinutes();
+        var seconds = now.getSeconds();
+        var dateTime = year + "/" + pad(month) + "/" + pad(day) + " " + pad(hours) + ":" + pad(minutes);
+        var dateString = "Rendered on " + dateTime;
+        return dateString;
+    }
+
+    function burnInDate(){
+
+        for (i = 1; i <= renderFolder.numItems; i++){
+            var comp = renderFolder.item(i);
+            var layer = comp.layer(1);
+            $.writeln(layer.name);
+            if (!(layer instanceof TextLayer) || layer.name !== "DATE-TIME"){return;};
+            layer.property("Source Text").setValue(getDateTime());
+        }
+    }
+
+
+    //-----------------------------------------------------------------------main
+
+    //load prefs
+    var folderName = app.settings.haveSetting("xRender", "folderName") ? app.settings.getSetting("xRender", "folderName") : "00_render";
+    var outputModuleSettings = app.settings.haveSetting("xRender", "outputModuleSettings") ? app.settings.getSetting("xRender", "outputModuleSettings") : "Prores422HQ";
+    var renderSettings = app.settings.haveSetting("xRender", "renderSettings") ? app.settings.getSetting("xRender", "renderSettings") : "Xaryen - Default";
+    var renderPath = app.settings.haveSetting("xRender", "renderPath") ? app.settings.getSetting("xRender", "renderPath") : "D:/08_test";
+
+    // Globals
+    var takeType = "T";
+    var takeNumber = 1;
+    var takeLookup = {
+        "T": "TIMING",
+        "F": "MAIN",
+        "G": "LINE",
+        "P": "PREVIZ",
+        "K": "KONTE"
+    }
+    var tSA = getObjectKeys(takeLookup);
+    var takeArray = getObjectValues(takeLookup);
+
+    var topComp = app.project.item(2);
+    takeType = getTake(topComp)[0];
+    takeNumber = getTake(topComp)[1];
+
+    var renderFolder = findFolderByName(app.project.rootFolder, folderName);
+
+    //UI
     var win = new Window("palette", "Render Queue Controls", undefined);
     win.orientation = "column";
 
-    // ListBox for render queue items
     var listBox = win.add("listbox", undefined, [], {multiselect: true});
     listBox.size = [300, 200];
 
     // Buttons
     var btnsGroup = win.add("group", undefined);
     btnsGroup.orientation = "row";
+    
     var updateBtn = btnsGroup.add("button", undefined, "Update");
     var renderBtn = btnsGroup.add("button", undefined, "Render");
     var settingsBtn = btnsGroup.add("button", undefined, "Settings");
@@ -198,26 +266,27 @@
     var bottRow1 = win.add("group", undefined);
     bottRow1.orientation = "row";
     var takeTypeText = bottRow1.add("statictext", undefined,"Take Type:");
-    var takeTypeDropdown = bottRow1.add("dropdownlist", undefined, ["TIMING", "MAIN", "LINE", "PREVIZ", "KONTE"]);
-    takeTypeDropdown.selection = 0; // Default selection
+    var takeTypeDropdown = bottRow1.add("dropdownlist", undefined, takeArray);
+    takeTypeDropdown.selection = getDropdownSelection(takeType);
 
     // take number
     var bottRow2 = win.add("group", undefined);
     bottRow2.orientation = "row";
-    var takeNumberText = bottRow2.add("statictext", undefined,"Take Type:");
+    var takeNumberText = bottRow2.add("statictext", undefined,"Take:");
     var takeMinus = bottRow2.add("button", undefined, "-");
-    var takeNumber = bottRow2.add("edittext", undefined);
-    takeNumber.readonly = true;
-    takeNumber.text = updateTake(topComp)[1];
+    var takeNumberDisplay = bottRow2.add("edittext", undefined);
     var takePlus = bottRow2.add("button", undefined, "+");
-
-    var takeType = updateTake(topComp)[0];
-    var takeNumber = updateTake(topComp)[0];
-
+    takeMinus.size = [50, 28];
+    takeNumberDisplay.size = [50, 28];
+    takePlus.size = [50, 28];
+    takeNumberDisplay.readonly = true;
+    takeNumberDisplay.text = takeNumber;
+ 
     // Event Handlers
     updateBtn.onClick = function() {
-        addToRenderQueue(folderName, outputModuleSettings, renderSettings,renderPath);
+        addToRenderQueue(renderFolder, outputModuleSettings, renderSettings,renderPath);
         updateListBox();
+        burnInDate();
     };
 
     renderBtn.onClick = function() {
@@ -228,6 +297,7 @@
 
     settingsBtn.onClick = function() {
         showSettingsDialog();
+        updateListBox();
     };
 
     clearQueueBtn.onClick = function() {
@@ -236,20 +306,32 @@
     };
 
     takeTypeDropdown.onChange = function(){
-        var tKn = updateTake(app.project.item(2));
-         $.writeln(tKn);
+        takeType = tSA[takeTypeDropdown.selection.index];
+        updateComp();
     };
 
+    takeMinus.onClick = function() {
+        if (takeNumber > 1) { 
+            takeNumber -= 1;
+        }
+        takeNumberDisplay.text = takeNumber;
+        updateComp();
+    };
 
-    
+    takePlus.onClick = function() {
+        takeNumber += 1;
+        takeNumberDisplay.text = takeNumber;
+        updateComp();
+    };
 
     // Initial update of the ListBox
     updateListBox();
-    updateDropdownSelection(takeType);
 
     // Show the window
     win.center();
     win.show();
 
-    $.writeln("test");
+    $.writeln("joever");
 })(this);
+
+
