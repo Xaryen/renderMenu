@@ -1,6 +1,4 @@
-//TODO: create folder if it's a sequence
 //TODO: trim the hidden modules 
-//field isn't read-only
 
 (function(me){
 
@@ -37,7 +35,7 @@
             if (item instanceof CompItem && !isCompInRenderQueue(item)) {
                 var renderQueueItem = app.project.renderQueue.items.add(item);
                 renderQueueItem.applyTemplate(renderSettings);
-
+                
                 if (isImgSeq){
                     path = outputPath + "/" + "imgSeq"
                 }
@@ -150,7 +148,7 @@
         // Output Module Settings Dropdown
         var outputModuleGroup = dlg.add("group", undefined);
         outputModuleGroup.add("statictext", undefined, "Output Module Settings:");
-        var oMList = tempRQitem.outputModule(1).templates;
+        var oMList = tempRQitem.outputModule(1).templates.slice(0, -6);
         var outputModuleDropdown = outputModuleGroup.add("dropdownlist", undefined, oMList);
         outputModuleDropdown.selection = outputModuleDropdown.find(outputModuleSettings) || 0;
 
@@ -237,9 +235,14 @@
 
         for (i = 1; i <= renderFolder.numItems; i++){
             var comp = renderFolder.item(i);
-            var layer = comp.layer(1);
-            if (!(layer instanceof TextLayer) || layer.name !== "DATE-TIME"){return;};
-            layer.property("Source Text").setValue(getDateTime());
+            var dateLayer = comp.layer(1);
+            var nameLayer = comp.layer(2);
+            if (!(dateLayer instanceof TextLayer) || dateLayer.name !== "DATE-TIME"){return;};
+            if (nameLayer instanceof TextLayer && nameLayer.name == "NAME" && nameLayer.text.sourceText.value == ""){
+                $.writeln("test");
+                nameLayer.text.sourceText.setValue(myName);
+            };
+            dateLayer.text.sourceText.setValue(getDateTime());
         }
     }
 
@@ -251,7 +254,7 @@
     var outputModuleSettings = app.settings.haveSetting("xRender", "outputModuleSettings") ? app.settings.getSetting("xRender", "outputModuleSettings") : "Prores422HQ";
     var renderSettings = app.settings.haveSetting("xRender", "renderSettings") ? app.settings.getSetting("xRender", "renderSettings") : "Xaryen - Default";
     var renderPath = app.settings.haveSetting("xRender", "renderPath") ? app.settings.getSetting("xRender", "renderPath") : "D:/";
-    var isImgSeq = app.settings.haveSetting("xRender", "isImgSeq") ? app.settings.getSetting("xRender", "isImgSeq") : false;
+    var isImgSeq = app.settings.haveSetting("xRender", "isImgSeq") ? (app.settings.getSetting("xRender", "isImgSeq") === "true") : false;
     var myName = app.settings.haveSetting("xRender", "myName") ? app.settings.getSetting("xRender", "myName") : "";
 
     // Globals
@@ -301,13 +304,13 @@
     bottRow2.orientation = "row";
     var takeNumberText = bottRow2.add("statictext", undefined,"Take:");
     var takeMinus = bottRow2.add("button", undefined, "-");
-    var takeNumberDisplay = bottRow2.add("edittext", undefined);
+    var takeNumberDisplay = bottRow2.add("edittext", undefined,"", {readonly: true, multiline: false});
     var takePlus = bottRow2.add("button", undefined, "+");
     takeMinus.size = [50, 28];
     takeNumberDisplay.size = [50, 28];
     takePlus.size = [50, 28];
-    takeNumberDisplay.readonly = true;
     takeNumberDisplay.text = takeNumber;
+    
  
     // Event Handlers
     updateBtn.onClick = function() {
@@ -319,8 +322,8 @@
     renderBtn.onClick = function() {
         $.writeln("rendering!");
         //alert("rendering!");
-        app.project.renderQueue.render();
         win.close();
+        app.project.renderQueue.render();
     };
 
     settingsBtn.onClick = function() {
