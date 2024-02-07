@@ -1,5 +1,6 @@
 //TODO: create folder if it's a sequence
 //TODO: trim the hidden modules 
+//field isn't read-only
 
 (function(me){
 
@@ -25,6 +26,8 @@
 
     function addToRenderQueue(renderFolder, outputModuleSettings, renderSettings, outputPath) {
 
+        var path = outputPath;
+
         var folder = renderFolder;
 
         app.beginUndoGroup("Add Items to Render Queue");
@@ -34,11 +37,15 @@
             if (item instanceof CompItem && !isCompInRenderQueue(item)) {
                 var renderQueueItem = app.project.renderQueue.items.add(item);
                 renderQueueItem.applyTemplate(renderSettings);
+
+                if (isImgSeq){
+                    path = outputPath + "/" + "imgSeq"
+                }
                 
                 // Set output module settings and file path
                 var outputModule = renderQueueItem.outputModule(1);
                 outputModule.applyTemplate(outputModuleSettings);
-                var outputFile = new File(outputPath + "/" + item.name + ".mov"); // .mov works for everything for some reason?
+                var outputFile = new File(path + "/" + item.name + ".mov"); // .mov works for everything for some reason?
                 outputModule.file = outputFile;
             }
         }
@@ -128,6 +135,12 @@
         dlg.orientation = "column";
         dlg.alignChildren = "fill";
 
+        // Render Path
+        var renderPathGroup = dlg.add("group", undefined);
+        renderPathGroup.add("statictext", undefined, "Render Path:");
+        var renderPathInput = renderPathGroup.add("edittext", undefined, renderPath);
+        renderPathInput.size = [200, 20];
+
         // Folder Name
         var folderGroup = dlg.add("group", undefined);
         folderGroup.add("statictext", undefined, "Folder Name:");
@@ -141,16 +154,23 @@
         var outputModuleDropdown = outputModuleGroup.add("dropdownlist", undefined, oMList);
         outputModuleDropdown.selection = outputModuleDropdown.find(outputModuleSettings) || 0;
 
+        //image sequence toggle
+        var imgSeqToggle = dlg.add("checkbox", undefined, "ImageSequence Folder");
+        imgSeqToggle.value = isImgSeq;
+
         // Render Settings Dropdown - This should actually be an EditText based on your provided code
         var renderSettingsGroup = dlg.add("group", undefined);
         renderSettingsGroup.add("statictext", undefined, "Render Settings:");
-        var renderSettingsDropdown = renderSettingsGroup.add("edittext", undefined, renderSettings);
+        var rSList = tempRQitem.templates;
+        var renderSettingsDropdown = renderSettingsGroup.add("dropdownlist", undefined, rSList);
+        renderSettingsDropdown.selection = renderSettingsDropdown.find(renderSettings) || 0;
 
-        // Render Path
-        var renderPathGroup = dlg.add("group", undefined);
-        renderPathGroup.add("statictext", undefined, "Render Path:");
-        var renderPathInput = renderPathGroup.add("edittext", undefined, renderPath);
-        renderPathInput.size = [200, 20];
+        //slate
+        var nameGrp = dlg.add("group")
+        nameGrp.orientation = "row";
+        nameGrp.add("statictext", undefined, "Compositor Name: ");
+        var myNameInput = nameGrp.add("edittext", undefined, myName);
+        myNameInput.size = [100,28];
 
         // Buttons
         var btnsGroup = dlg.add("group", undefined);
@@ -161,13 +181,17 @@
         okBtn.onClick = function() {
             folderName = folderNameInput.text;
             outputModuleSettings = outputModuleDropdown.selection.text;
-            renderSettings = renderSettingsDropdown.text;
+            renderSettings = renderSettingsDropdown.selection.text;
             renderPath = renderPathInput.text;
+            isImgSeq = imgSeqToggle.value;
+            myName = myNameInput.text;
 
             app.settings.saveSetting("xRender", "folderName", folderName);
             app.settings.saveSetting("xRender", "outputModuleSettings", outputModuleSettings);
             app.settings.saveSetting("xRender", "renderSettings", renderSettings);
             app.settings.saveSetting("xRender", "renderPath", renderPath);
+            app.settings.saveSetting("xRender", "isImgSeq", isImgSeq);
+            app.settings.saveSetting("xRender", "myName", myName);
 
             clearRenderQueue();
             dlg.close();
@@ -184,9 +208,11 @@
     function updateComp(){
         for (i = 1; i <= renderFolder.numItems; i++){
             var comp = renderFolder.item(i);
+            var oldCompName = comp.name;
             var compNameParts = comp.name.split("_");
             compNameParts[compNameParts.length - 1] = takeType + takeNumber;
             comp.name = compNameParts.join("_");
+            app.project.autoFixExpressions(oldCompName, comp.name);
         }
     }
 
@@ -207,12 +233,11 @@
         return dateString;
     }
 
-    function burnInDate(){
+    function slateBurnIn(){
 
         for (i = 1; i <= renderFolder.numItems; i++){
             var comp = renderFolder.item(i);
             var layer = comp.layer(1);
-            $.writeln(layer.name);
             if (!(layer instanceof TextLayer) || layer.name !== "DATE-TIME"){return;};
             layer.property("Source Text").setValue(getDateTime());
         }
@@ -225,7 +250,9 @@
     var folderName = app.settings.haveSetting("xRender", "folderName") ? app.settings.getSetting("xRender", "folderName") : "00_render";
     var outputModuleSettings = app.settings.haveSetting("xRender", "outputModuleSettings") ? app.settings.getSetting("xRender", "outputModuleSettings") : "Prores422HQ";
     var renderSettings = app.settings.haveSetting("xRender", "renderSettings") ? app.settings.getSetting("xRender", "renderSettings") : "Xaryen - Default";
-    var renderPath = app.settings.haveSetting("xRender", "renderPath") ? app.settings.getSetting("xRender", "renderPath") : "D:/08_test";
+    var renderPath = app.settings.haveSetting("xRender", "renderPath") ? app.settings.getSetting("xRender", "renderPath") : "D:/";
+    var isImgSeq = app.settings.haveSetting("xRender", "isImgSeq") ? app.settings.getSetting("xRender", "isImgSeq") : false;
+    var myName = app.settings.haveSetting("xRender", "myName") ? app.settings.getSetting("xRender", "myName") : "";
 
     // Globals
     var takeType = "T";
@@ -247,7 +274,7 @@
     var renderFolder = findFolderByName(app.project.rootFolder, folderName);
 
     //UI
-    var win = new Window("palette", "Render Queue Controls", undefined);
+    var win = new Window("window", "Render Control", undefined);
     win.orientation = "column";
 
     var listBox = win.add("listbox", undefined, [], {multiselect: true});
@@ -286,13 +313,14 @@
     updateBtn.onClick = function() {
         addToRenderQueue(renderFolder, outputModuleSettings, renderSettings,renderPath);
         updateListBox();
-        burnInDate();
+        slateBurnIn();
     };
 
     renderBtn.onClick = function() {
         $.writeln("rendering!");
         //alert("rendering!");
         app.project.renderQueue.render();
+        win.close();
     };
 
     settingsBtn.onClick = function() {
