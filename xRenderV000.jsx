@@ -1,5 +1,3 @@
-//TODO: trim the hidden modules 
-
 (function(me){
 
     function getObjectKeys(obj) {
@@ -145,10 +143,10 @@
         var folderNameInput = folderGroup.add("edittext", undefined, folderName);
         folderNameInput.size = [200, 20];
 
-        // Output Module Settings Dropdown
+        //output Module Settings Dropdown
         var outputModuleGroup = dlg.add("group", undefined);
         outputModuleGroup.add("statictext", undefined, "Output Module Settings:");
-        var oMList = tempRQitem.outputModule(1).templates.slice(0, -6);
+        var oMList = tempRQitem.outputModule(1).templates.slice(0, -6); //removes the built in hidden output modules
         var outputModuleDropdown = outputModuleGroup.add("dropdownlist", undefined, oMList);
         outputModuleDropdown.selection = outputModuleDropdown.find(outputModuleSettings) || 0;
 
@@ -156,7 +154,7 @@
         var imgSeqToggle = dlg.add("checkbox", undefined, "ImageSequence Folder");
         imgSeqToggle.value = isImgSeq;
 
-        // Render Settings Dropdown - This should actually be an EditText based on your provided code
+        //render settings dropdown
         var renderSettingsGroup = dlg.add("group", undefined);
         renderSettingsGroup.add("statictext", undefined, "Render Settings:");
         var rSList = tempRQitem.templates;
@@ -232,7 +230,7 @@
     }
 
     function slateBurnIn(){
-
+        app.beginUndoGroup("burn in render info");
         for (i = 1; i <= renderFolder.numItems; i++){
             var comp = renderFolder.item(i);
             var dateLayer = comp.layer(1);
@@ -244,6 +242,7 @@
             };
             dateLayer.text.sourceText.setValue(getDateTime());
         }
+        app.endUndoGroup();
     }
 
 
