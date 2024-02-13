@@ -320,7 +320,9 @@
 
     renderBtn.onClick = function() {
         $.writeln("rendering!");
-        //alert("rendering!");
+        if (!(app.project.renderQueue.numItems > 0)){$.writeln("render queue empty");return;}
+        app.project.save();
+        win.update();
         win.close();
         app.project.renderQueue.render();
     };
